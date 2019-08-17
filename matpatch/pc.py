@@ -60,7 +60,6 @@ class MatPatch(PCBase):
 
         patch.setDM(self.plex)
         self.plex.setDefaultSection(V.dm.getDefaultSection())
-        self.plex.setDefaultGlobalSection(V.dm.getDefaultGlobalSection())
         patch.setAttr("ctx", ctx)
         patch.incrementTabLevel(1, parent=obj)
         patch.setFromOptions()

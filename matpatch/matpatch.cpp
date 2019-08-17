@@ -14,7 +14,8 @@ class BlockJacobi {
    public:
     vector<vector<PetscInt>> dofsPerBlock;
     vector<vector<PetscScalar>> matValuesPerBlock;
-    vector<PetscScalar> work;
+    vector<PetscScalar> worka;
+    vector<PetscScalar> workb;
 
     BlockJacobi(vector<vector<PetscInt>> _dofsPerBlock)
         : dofsPerBlock(_dofsPerBlock) {
@@ -28,7 +29,8 @@ class BlockJacobi {
             matValuesPerBlock[p] = vector<PetscScalar>(dof * dof);
             biggestBlock = max(biggestBlock, dof);
         }
-        work = vector<PetscScalar>(biggestBlock, 0);
+        worka = vector<PetscScalar>(biggestBlock, 0);
+        workb = vector<PetscScalar>(biggestBlock, 0);
     }
 
     PetscInt updateValuesPerBlock(Mat P) {
@@ -51,19 +53,30 @@ class BlockJacobi {
     }
 
 
-    void solve(double* b, double* x) {
+    PetscInt solve(double* b, double* x) {
         PetscInt dof;
+        PetscScalar dOne = 1.0;
+        PetscInt one = 1;
+        PetscScalar dZero = 0.0;
         for(int p=0; p<dofsPerBlock.size(); p++) {
             dof = dofsPerBlock[p].size();
             for(int j=0; j<dof; j++) {
-                work[j] = b[dofsPerBlock[p][j]];;
+                workb[j] = b[dofsPerBlock[p][j]];;
             }
-            for(int i=0; i<dof; i++) {
-                for(int j=0; j<dof; j++) {
-                    x[dofsPerBlock[p][i]] += matValuesPerBlock[p][i*dof + j] * work[j];
+            if(dof < 7) {
+                for(int i=0; i<dof; i++) {
+                    for(int j=0; j<dof; j++) {
+                        x[dofsPerBlock[p][i]] += matValuesPerBlock[p][i*dof + j] * workb[j];
+                    }
+                }
+            } else {
+                PetscStackCallBLAS("BLASgemv",BLASgemv_("N", &dof, &dof, &dOne, &matValuesPerBlock[p][0], &dof, &workb[0], &one, &dZero, &worka[0], &one));
+                for(int i=0; i<dof; i++) {
+                    x[dofsPerBlock[p][i]] += worka[i];
                 }
             }
         }
+        return 0;
     }
 };
 
