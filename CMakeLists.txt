@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 set(CMAKE_CXX_COMPILER "mpicxx")
 set(CMAKE_C_COMPILER "mpicc")
 
-project(pyblockjacobi)
+project(_matpatch)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 set(CMAKE_CXX_FLAGS "-O3 -march=native -DLINUX -DNDEBUG")
@@ -12,7 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(pybind11)
 pybind11_add_module(${PROJECT_NAME} 
-    src/pyblockjacobi.cpp
+    matpatch/matpatch.cpp
 )
 
 set_target_properties(${PROJECT_NAME}

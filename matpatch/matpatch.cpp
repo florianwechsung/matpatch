@@ -47,7 +47,7 @@ class BlockJacobi {
             PetscStackCallBLAS("LAPACKgetrf",LAPACKgetrf_(&dof,&dof,&matValuesPerBlock[p][0],&lda,&piv[0],&info));
             PetscStackCallBLAS("LAPACKgetri",LAPACKgetri_(&dof,&matValuesPerBlock[p][0], &lda, &piv[0],&fwork[0],&dof,&info));
         }
-
+        return 0;
     }
 
 
@@ -67,7 +67,9 @@ class BlockJacobi {
     }
 };
 
-PetscErrorCode PCSetup_BlockJacobi(PC pc) {
+
+PetscErrorCode PCSetup_MatPatch(PC pc) {
+    auto P = pc -> pmat;
     if(!(pc->data)) {
         PetscInt ierr, i, j, k, p;
 
@@ -94,7 +96,8 @@ PetscErrorCode PCSetup_BlockJacobi(PC pc) {
 
         vector<vector<PetscInt>> dofsPerBlock(vhi-vlo);
         PetscInt dof, off, numDofs;
-        int blocksize = 2;
+        PetscInt blocksize = 1;
+        MatGetBlockSize(P, &blocksize);
         for(p=0; p<vhi-vlo; p++) {
             numDofs = 0;
             for(i=0; i<pointsPerBlock[p].size(); i++) {
@@ -113,36 +116,38 @@ PetscErrorCode PCSetup_BlockJacobi(PC pc) {
                 }
             }
         }
-        //cout << "Points " << endl;
-        //for(i=0; i<pointsPerBlock.size(); i++) {
-        //    cout << "Block " << i << endl << "\t";
-        //    for(j=0; j<pointsPerBlock[i].size(); j++) {
-        //        cout << pointsPerBlock[i][j] << " ";
-        //    }
-        //    cout << endl;
-        //}
-        //cout << "Dofs " << endl;
-        //for(i=0; i<dofsPerBlock.size(); i++) {
-        //    cout << "Block " << i << endl << "\t";
-        //    for(j=0; j<dofsPerBlock[i].size(); j++) {
-        //        cout << dofsPerBlock[i][j] << " ";
-        //    }
-        //    cout << endl;
-        //}
+        if(0) {
+            cout << "Points " << endl;
+            for(i=0; i<pointsPerBlock.size(); i++) {
+                cout << "Block " << i << endl << "\t";
+                for(j=0; j<pointsPerBlock[i].size(); j++) {
+                    cout << pointsPerBlock[i][j] << " ";
+                }
+                cout << endl;
+            }
+            cout << "Dofs " << endl;
+            for(i=0; i<dofsPerBlock.size(); i++) {
+                cout << "Block " << i << endl << "\t";
+                for(j=0; j<dofsPerBlock[i].size(); j++) {
+                    cout << dofsPerBlock[i][j] << " ";
+                }
+                cout << endl;
+            }
+        }
         auto blockjacobi = new BlockJacobi(dofsPerBlock);
         pc->data = (void *)blockjacobi;
     }
     auto blockjacobi = (BlockJacobi *)pc->data;
-    auto P = pc -> pmat;
     blockjacobi -> updateValuesPerBlock(P);
     return 0;
 }
 
-PetscErrorCode PCApply_BlockJacobi(PC pc, Vec b, Vec x) {
+PetscErrorCode PCApply_MatPatch(PC pc, Vec b, Vec x) {
     auto blockjacobi = (BlockJacobi *)pc->data;
 
-    PetscInt size;
-    VecGetSize(b, &size);
+    //PetscInt size;
+    //VecGetSize(b, &size);
+    //cout << "Size: " << size << endl;
     VecSet(x, 0.0);
 
     double *barray, *xarray;
@@ -154,20 +159,20 @@ PetscErrorCode PCApply_BlockJacobi(PC pc, Vec b, Vec x) {
     return 0;
 }
 
-PetscErrorCode PCDestroy_BlockJacobi(PC pc) {
+PetscErrorCode PCDestroy_MatPatch(PC pc) {
     if(pc->data)
         delete (BlockJacobi *)pc->data;
     return 0;
 }
 
-PetscErrorCode PCCreate_BlockJacobi(PC pc) {
+PetscErrorCode PCCreate_MatPatch(PC pc) {
     pc->data = NULL;
-    pc->ops->apply = PCApply_BlockJacobi;
-    pc->ops->setup = PCSetup_BlockJacobi;
-    pc->ops->destroy = PCDestroy_BlockJacobi;
+    pc->ops->apply = PCApply_MatPatch;
+    pc->ops->setup = PCSetup_MatPatch;
+    pc->ops->destroy = PCDestroy_MatPatch;
     return 0;
 }
 
-PYBIND11_MODULE(pyblockjacobi, m) {
-    PCRegister("blockjacobi", PCCreate_BlockJacobi);
+PYBIND11_MODULE(_matpatch, m) {
+    PCRegister("matpatch", PCCreate_MatPatch);
 }

@@ -1,1 +1,8 @@
 build/
+matpatch.egg-info/
+examples/__pycache__/
+matpatch/__pycache__/
+*.pvd
+*.vtu
+*.pvtu
+*.so
