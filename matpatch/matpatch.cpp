@@ -48,10 +48,7 @@ class BlockJacobi {
             for(int p=0; p<numBlocks; p++) {
                 dof = dofsPerBlock[p].size();
                 for(int i=0; i<dof; i++)
-
                     ierr = MatGetValues(P, dof, &dofsPerBlock[p][0], dof, &dofsPerBlock[p][0], &matValuesPerBlock[p][0]);CHKERRQ(ierr);
-                //ierr = MatGetValues(P, dof, &globalDofsPerBlock[p][0], dof, &globalDofsPerBlock[p][0], &matValuesPerBlock[p][0]);CHKERRQ(ierr);
-
             }
         } else {
             vector<IS> dofis(numBlocks);
@@ -247,47 +244,25 @@ PetscErrorCode PCSetup_MatPatch(PC pc) {
 }
 
 PetscErrorCode PCApply_MatPatch(PC pc, Vec b, Vec x) {
-    //PetscInt size;
-    //VecGetSize(b, &size);
-    //cout << "bsize " << size << endl;
-    //VecGetSize(x, &size);
-    //cout << "xsize " << size << endl;
     PetscInt ierr;
+    ierr = VecSet(x, 0.0);CHKERRQ(ierr);
     auto blockjacobi = (BlockJacobi *)pc->data;
 
     PetscScalar *globalb;
     PetscScalar *globalx;
-    for(int i=0; i<blockjacobi->localx.size(); i++)
-        blockjacobi->localb[i] = 0.;
+
     ierr = VecGetArray(b, &globalb);CHKERRQ(ierr);
     ierr = PetscSFBcastBegin(blockjacobi->sf, MPIU_SCALAR, globalb, &(blockjacobi->localb[0]));CHKERRQ(ierr);
     ierr = PetscSFBcastEnd(blockjacobi->sf, MPIU_SCALAR, globalb, &(blockjacobi->localb[0]));CHKERRQ(ierr);
-
-    //cout << "localb ";
-    //for(int i=0; i<blockjacobi->localb.size(); i++) {
-    //    cout << blockjacobi->localb[i] << " ";
-    //}
-    //cout << endl;
-    //cout << "globalb ";
-    //for(int i=0; i<blockjacobi->localx.size(); i++) {
-    //    cout << globalb[i] << " ";
-    //}
-    //cout << endl;
     ierr = VecRestoreArray(b, &globalb);CHKERRQ(ierr);
 
-    VecSet(x, 0.0);
     for(int i=0; i<blockjacobi->localx.size(); i++)
         blockjacobi->localx[i] = 0.;
-
 
     blockjacobi->solve(&(blockjacobi->localb[0]), &(blockjacobi->localx[0]));
     ierr = VecGetArray(x, &globalx);CHKERRQ(ierr);
     ierr = PetscSFReduceBegin(blockjacobi->sf, MPIU_SCALAR, &(blockjacobi->localx[0]), globalx, MPI_SUM);CHKERRQ(ierr);
     ierr = PetscSFReduceEnd(blockjacobi->sf, MPIU_SCALAR, &(blockjacobi->localx[0]), globalx, MPI_SUM);CHKERRQ(ierr);
-    //cout << "globalx ";
-    //for(int i=0; i<blockjacobi->localx.size(); i++) {
-    //    cout << globalx[i] << " ";
-    //}
     ierr = VecRestoreArray(x, &globalx);CHKERRQ(ierr);
 
     //VecSet(x, 0.0);
@@ -295,10 +270,6 @@ PetscErrorCode PCApply_MatPatch(PC pc, Vec b, Vec x) {
     //VecGetArray(b, &barray);
     //VecGetArray(x, &xarray);
     //blockjacobi->solve(barray, xarray);
-    ////cout << "xarray ";
-    ////for(int i=0; i<blockjacobi->localx.size(); i++) {
-    ////    cout << xarray[i] << " ";
-    ////}
     //VecRestoreArray(b, &barray);
     //VecRestoreArray(x, &xarray);
     return 0;
@@ -310,10 +281,6 @@ PetscErrorCode PCDestroy_MatPatch(PC pc) {
     return 0;
 }
 
-PetscErrorCode PCSetSF(PC pc, PetscSF sf) {
-    cout << "In PCSetSF" << endl;
-    return 0;
-}
 
 PetscErrorCode PCCreate_MatPatch(PC pc) {
     pc->data = NULL;
