@@ -12,20 +12,22 @@ args, _ = parser.parse_known_args()
 distribution_parameters={"partition": True, "overlap_type": (DistributedMeshOverlapType.VERTEX, 1)}
 mesh = UnitSquareMesh(args.n, args.n, distribution_parameters=distribution_parameters)
 
-V = VectorFunctionSpace(mesh, "CG", args.k)
+# V = VectorFunctionSpace(mesh, "CG", args.k)
+V = FunctionSpace(mesh, "RT", args.k)
 
 u = Function(V)
 v = TestFunction(V)
-gamma = Constant(100.0)
+gamma = Constant(1.0)
 rhs = Constant((1, 1))
-F = inner(u, v) * dx + inner(grad(u), grad(v)) * dx + gamma * inner(div(u), cell_avg(div(v))) * dx - inner(rhs, v) * dx
+# F = inner(u, v) * dx + inner(grad(u), grad(v)) * dx + gamma * inner(div(u), cell_avg(div(v))) * dx - inner(rhs, v) * dx
+F = inner(u, v) * dx + gamma * inner(div(u), cell_avg(div(v))) * dx - inner(rhs, v) * dx
 
 common = {
     "snes_type": "ksponly",
     "ksp_type": "cg",
     # "ksp_view": None,
     # "ksp_monitor": None,
-    # "ksp_monitor_true_residual": None,
+    "ksp_monitor_true_residual": None,
     "ksp_max_it": 1000,
     "ksp_converged_reason": None,
 }
@@ -33,6 +35,7 @@ common = {
 matpatch = {
     # "pc_type": "none",
     # "pc_type": "pbjacobi",
+    # "pc_type": "hypre",
     "pc_type": "python",
     "pc_python_type": "matpatch.MatPatch",
     # "pc_python_type": "alfi.Star",
