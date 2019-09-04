@@ -23,6 +23,8 @@ set_target_properties(${PROJECT_NAME}
 
 find_package(PETSc REQUIRED)
 message(STATUS ${PETSc})
+find_package(PETSc4py)
+message(STATUS ${PETSc4py})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PETSC_LIBRARIES})
-target_include_directories(${PROJECT_NAME} PRIVATE ${PETSC_INCLUDES})
+target_include_directories(${PROJECT_NAME} PRIVATE ${PETSC_INCLUDES} ${PETSC4PY_INCLUDE_DIRS})
