@@ -68,13 +68,15 @@ class BlockJacobi {
             }
         } else {
 			auto t1 = std::chrono::high_resolution_clock::now();
-            ierr = MatCreateSubMatrices(P, numBlocks, &dofis[0], &dofis[0], localmats ? MAT_REUSE_MATRIX : MAT_INITIAL_MATRIX, &localmats);CHKERRQ(ierr);
+			ierr = MatCreateSubMatrices(P, numBlocks, &dofis[0], &dofis[0], localmats ? MAT_REUSE_MATRIX : MAT_INITIAL_MATRIX, &localmats);CHKERRQ(ierr);
+			//ierr = MatCreateSubMatrices(P, numBlocks, &dofis[0], &dofis[0], MAT_INITIAL_MATRIX, &localmats);CHKERRQ(ierr);
             for(int p=0; p<numBlocks; p++) {
                 PetscInt dof = globalDofsPerBlock[p].size();
                 vector<int> v(dof);
                 iota(v.begin(), v.end(), 0);
                 ierr = MatGetValues(localmats[p], dof, &v[0], dof, &v[0], &matValuesPerBlock[p][0]);CHKERRQ(ierr);
             }
+			//ierr = MatDestroyMatrices(numBlocks, &localmats);CHKERRQ(ierr);
 			auto t2 = std::chrono::high_resolution_clock::now();
 			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
 			cout << "Time for getting the local matrices: " << duration << endl << flush;
