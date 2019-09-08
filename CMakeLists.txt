@@ -13,6 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_subdirectory(pybind11)
 pybind11_add_module(${PROJECT_NAME} 
     matpatch/matpatch.cpp
+    matpatch/matinvert.cpp
 )
 
 set_target_properties(${PROJECT_NAME}

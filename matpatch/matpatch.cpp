@@ -14,6 +14,8 @@
 using namespace std;
 namespace py = pybind11;
 
+PetscErrorCode mymatinvert(PetscInt* n, PetscScalar* mat, PetscInt* piv, PetscInt* info, PetscScalar* work);
+
 class BlockJacobi {
    public:
     vector<vector<PetscInt>> dofsPerBlock;
@@ -26,6 +28,8 @@ class BlockJacobi {
     PetscSF sf;
 	Mat *localmats;
 	vector<IS> dofis;
+	vector<PetscInt> piv;
+	vector<PetscScalar> fwork;
 
     BlockJacobi(vector<vector<PetscInt>> _dofsPerBlock, vector<vector<PetscInt>> _globalDofsPerBlock, int localSize, PetscSF _sf)
         : dofsPerBlock(_dofsPerBlock), globalDofsPerBlock(_globalDofsPerBlock), sf(_sf) {
@@ -43,6 +47,9 @@ class BlockJacobi {
         workb = vector<PetscScalar>(biggestBlock, 0);
         localb = vector<PetscScalar>(localSize, 0);
         localx = vector<PetscScalar>(localSize, 0);
+		piv = vector<PetscInt>(biggestBlock, 0.);
+		iota(piv.begin(), piv.end(), 1);
+		fwork= vector<PetscScalar>(biggestBlock, 0.);
 		localmats = NULL;
 		dofis = vector<IS>(numBlocks);
 		for(int p=0; p<numBlocks; p++) {
@@ -84,14 +91,12 @@ class BlockJacobi {
             }
         }
 		auto t1 = std::chrono::high_resolution_clock::now();
+		PetscInt info;
         for(int p=0; p<numBlocks; p++) {
             PetscInt dof = dofsPerBlock[p].size();
-            PetscInt lda=dof;
-            vector<PetscInt> piv(dof, 0.);
-            vector<PetscScalar> fwork(dof, 0.);
-            PetscInt info;
-            PetscStackCallBLAS("LAPACKgetrf",LAPACKgetrf_(&dof,&dof,&matValuesPerBlock[p][0],&lda,&piv[0],&info));
-            PetscStackCallBLAS("LAPACKgetri",LAPACKgetri_(&dof,&matValuesPerBlock[p][0], &lda, &piv[0],&fwork[0],&dof,&info));
+            //PetscStackCallBLAS("LAPACKgetrf",LAPACKgetrf_(&dof,&dof,&matValuesPerBlock[p][0],&dof,&piv[0],&info));
+            //PetscStackCallBLAS("LAPACKgetri",LAPACKgetri_(&dof,&matValuesPerBlock[p][0], &dof, &piv[0],&fwork[0],&dof,&info));
+			mymatinvert(&dof, &matValuesPerBlock[p][0], &piv[0], &info, &fwork[0]);
         }
 		auto t2 = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
