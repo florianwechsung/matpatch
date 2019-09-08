@@ -29,6 +29,7 @@ class BlockJacobi {
 	Mat *localmats;
 	vector<IS> dofis;
 	vector<PetscInt> piv;
+	vector<int> matToUse;
 	vector<PetscScalar> fwork;
 
     BlockJacobi(vector<vector<PetscInt>> _dofsPerBlock, vector<vector<PetscInt>> _globalDofsPerBlock, int localSize, PetscSF _sf)
@@ -55,6 +56,7 @@ class BlockJacobi {
 		for(int p=0; p<numBlocks; p++) {
 			ISCreateGeneral(MPI_COMM_SELF, globalDofsPerBlock[p].size(), &globalDofsPerBlock[p][0], PETSC_USE_POINTER ,&dofis[p]);
 		}
+        matToUse = vector<int>(numBlocks, -1);
     }
 
     PetscInt updateValuesPerBlock(Mat P) {
@@ -79,22 +81,37 @@ class BlockJacobi {
 			//ierr = MatDestroyMatrices(numBlocks, &localmats);CHKERRQ(ierr);
 			auto t2 = std::chrono::high_resolution_clock::now();
 			auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-			//cout << "Time for getting the local matrices: " << duration << endl << flush;
+            cout << "Time for getting the local matrices: " << duration << endl << flush;
         }
-        if(0) {
-            cout << "Block mats" << endl;
-            for(int p=0; p<numBlocks; p++) {
-                cout << "Block " << p << endl;
-                for(int i=0; i<matValuesPerBlock[p].size(); i++)
-                {
-                    cout << matValuesPerBlock[p][i] << " ";
+        if(matToUse[0] == -1) {
+            matToUse[0] = 0;
+            int savedmats = 0;
+            for(int p=1; p<numBlocks; p++) {
+                if(matValuesPerBlock[p-1].size() != matValuesPerBlock[p].size()) {
+                    matToUse[p] = p;
+                    continue;
                 }
-                cout << endl << std::flush;;
+                int dof = matValuesPerBlock[p-1].size();
+                PetscScalar norm = 0;
+                for(int i=0; i<dof; i++) {
+                    norm += pow(matValuesPerBlock[p][i] - matValuesPerBlock[p-1][i], 2);
+                }
+                //cout << norm << " ";
+                if(norm < 1e-10){
+                    savedmats++;
+                    matToUse[p] = matToUse[p-1];
+                    //matToUse[p] = p;
+                } else {
+                    matToUse[p] = p;
+                }
             }
+            cout << "Saved mats: " << savedmats << " out of " << matValuesPerBlock.size() << endl;
         }
 		auto t1 = std::chrono::high_resolution_clock::now();
 		PetscInt info;
         for(int p=0; p<numBlocks; p++) {
+            if(matToUse[p] != p)
+                continue;
             PetscInt dof = dofsPerBlock[p].size();
             //PetscStackCallBLAS("LAPACKgetrf",LAPACKgetrf_(&dof,&dof,&matValuesPerBlock[p][0],&dof,&piv[0],&info));
             //PetscStackCallBLAS("LAPACKgetri",LAPACKgetri_(&dof,&matValuesPerBlock[p][0], &dof, &piv[0],&fwork[0],&dof,&info));
@@ -102,7 +119,7 @@ class BlockJacobi {
         }
 		auto t2 = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-		//cout << "Time for factorising the local matrices: " << duration << endl << flush;
+        cout << "Time for factorising the local matrices: " << duration << endl << flush;
         return 0;
     }
 
@@ -120,16 +137,16 @@ class BlockJacobi {
             if(dof < 6)
                 for(int i=0; i<dof; i++)
                     for(int j=0; j<dof; j++)
-                        x[dofsPerBlock[p][i]] += matValuesPerBlock[p][i*dof + j] * workb[j];
+                        x[dofsPerBlock[p][i]] += matValuesPerBlock[matToUse[p]][i*dof + j] * workb[j];
             else {
-                PetscStackCallBLAS("BLASgemv",BLASgemv_("N", &dof, &dof, &dOne, &matValuesPerBlock[p][0], &dof, &workb[0], &one, &dZero, &worka[0], &one));
+                PetscStackCallBLAS("BLASgemv",BLASgemv_("N", &dof, &dof, &dOne, &matValuesPerBlock[matToUse[p]][0], &dof, &workb[0], &one, &dZero, &worka[0], &one));
                 for(int i=0; i<dof; i++)
                     x[dofsPerBlock[p][i]] += worka[i];
             }
         }
 		auto t2 = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-		//cout << "Time for applying the local matrices: " << duration << endl << flush;
+        //cout << "Time for applying the local matrices: " << duration << endl << flush;
         return 0;
     }
 };
@@ -223,7 +240,7 @@ PetscErrorCode PCSetup_MatPatch(PC pc) {
                         dofsPerBlock[p].push_back(k + blocksize * (off + j));
                     }
                 }
-                std::sort(dofsPerBlock[p].begin(), dofsPerBlock[p].end());
+                //std::sort(dofsPerBlock[p].begin(), dofsPerBlock[p].end());
 				globalDofsPerBlock[p] = vector<PetscInt>(dofsPerBlock[p].size(), 0);
                 ISLocalToGlobalMappingApply(lgr, dofsPerBlock[p].size(), &dofsPerBlock[p][0], &globalDofsPerBlock[p][0]);
             }
@@ -287,7 +304,7 @@ PetscErrorCode PCApply_MatPatch(PC pc, Vec b, Vec x) {
 	ierr = VecRestoreArray(b, &globalb);CHKERRQ(ierr);
 	auto t2 = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-	//cout << "Time for getting the local vectors: " << duration << endl << flush;
+    //cout << "Time for getting the local vectors: " << duration << endl << flush;
 
 	for(int i=0; i<blockjacobi->localx.size(); i++)
 		blockjacobi->localx[i] = 0.;
@@ -300,7 +317,7 @@ PetscErrorCode PCApply_MatPatch(PC pc, Vec b, Vec x) {
 	ierr = VecRestoreArray(x, &globalx);CHKERRQ(ierr);
 	t2 = std::chrono::high_resolution_clock::now();
 	duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-	//cout << "Time for scattering the local vectors: " << duration << endl << flush;
+    //cout << "Time for scattering the local vectors: " << duration << endl << flush;
     return 0;
 }
 
