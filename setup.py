@@ -48,6 +48,9 @@ class CMakeBuild(build_ext):
         else:
             cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
             build_args += ['--', '-j2']
+        import petsc4py
+        cmake_args += ['-DPETSC_DIR=' + petsc4py.get_config()['PETSC_DIR']]
+        cmake_args += ['-DPETSC_ARCH=' + petsc4py.get_config()['PETSC_ARCH']]
         env = os.environ.copy()
         env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(env.get('CXXFLAGS', ''),
                                                               self.distribution.get_version())
