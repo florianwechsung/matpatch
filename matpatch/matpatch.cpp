@@ -299,7 +299,7 @@ PetscErrorCode PCApply_MatPatch(PC pc, Vec b, Vec x) {
 	ierr = VecSet(x, 0.0);CHKERRQ(ierr);
 	auto blockjacobi = (BlockJacobi *)pc->data;
 
-	PetscScalar *globalb;
+	const PetscScalar *globalb;
 	PetscScalar *globalx;
 
 	ierr = VecGetArrayRead(b, &globalb);CHKERRQ(ierr);
