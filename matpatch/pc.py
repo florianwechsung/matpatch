@@ -36,7 +36,7 @@ class MatPatch(PCBase):
             bcs = ctx._problem.bcs
 
         mesh = J.ufl_domain()
-        self.plex = mesh._plex
+        self.plex = mesh._topology_dm
         self.ctx = ctx
 
         if mesh.cell_set._extruded:
